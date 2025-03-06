@@ -148,11 +148,54 @@ const adminDashboard = async (req, res) => {
     }
 }
 
+// API to delete a doctor
+const deleteDoctor = async (req, res) => {
+    try {
+        const { docId } = req.body;
+        
+        // Check for active appointments
+        const activeAppointments = await appointmentModel.find({ docId, cancelled: false, isCompleted: false });
+        if (activeAppointments.length > 0) {
+            return res.json({ success: false, message: 'Doctor has active appointments and cannot be deleted.' });
+        }
+
+        // Get doctor data to access image URL
+        const doctor = await doctorModel.findById(docId);
+        if (!doctor) {
+            return res.json({ success: false, message: 'Doctor not found.' });
+        }
+
+        // Delete image from Cloudinary if exists
+        if (doctor.image) {
+            try {
+                const publicId = doctor.image.split('/').pop().split('.')[0];
+                await cloudinary.uploader.destroy(publicId);
+            } catch (cloudinaryError) {
+                console.log('Cloudinary deletion error:', cloudinaryError);
+                return res.json({ 
+                    success: false, 
+                    message: 'Failed to delete doctor\'s image. Please try again.' 
+                });
+            }
+        }
+
+        // Only proceed with database deletion if image deletion was successful
+        await doctorModel.findByIdAndDelete(docId);
+        await appointmentModel.deleteMany({ docId });
+        
+        res.json({ success: true, message: 'Doctor and associated data deleted successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 export {
     loginAdmin,
     appointmentsAdmin,
     appointmentCancel,
     addDoctor,
     allDoctors,
-    adminDashboard
+    adminDashboard,
+    deleteDoctor
 }
