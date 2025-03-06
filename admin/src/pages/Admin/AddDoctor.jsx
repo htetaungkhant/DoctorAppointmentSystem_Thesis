@@ -37,6 +37,10 @@ const AddDoctor = () => {
                 return toast.error('About section must be at least 300 characters long')
             }
 
+            if (!address1 && !address2) {
+                return toast.error('Please fill at least one address field')
+            }
+
             const formData = new FormData();
 
             formData.append('image', docImg)
@@ -172,9 +176,9 @@ const AddDoctor = () => {
                             </div>
 
                             <div className='flex-1 flex flex-col gap-1'>
-                                <p>Address</p>
-                                <input onChange={e => setAddress1(e.target.value)} value={address1} className='border rounded px-3 py-2' type="text" placeholder='Address 1' required />
-                                <input onChange={e => setAddress2(e.target.value)} value={address2} className='border rounded px-3 py-2' type="text" placeholder='Address 2' required />
+                                <p>Address <span className="text-xs text-gray-500">(At least one address is required)</span></p>
+                                <input onChange={e => setAddress1(e.target.value)} value={address1} className='border rounded px-3 py-2' type="text" placeholder='Address 1' />
+                                <input onChange={e => setAddress2(e.target.value)} value={address2} className='border rounded px-3 py-2' type="text" placeholder='Address 2' />
                             </div>
 
                         </div>
