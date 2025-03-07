@@ -3,11 +3,13 @@ import { AdminContext } from '../../context/AdminContext'
 import { Switch } from '../../components/ui/Switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../../components/ui/Dialog'
 import LoadingScreen from '../../components/ui/LoadingScreen'
+import { useNavigate } from 'react-router-dom'
 
 const DoctorsList = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ show: false, id: null });
   const [isDeleting, setIsDeleting] = useState(false);
   const { doctors, changeAvailability, deleteDoctor, aToken, getAllDoctors } = useContext(AdminContext);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (aToken) {
@@ -29,13 +31,21 @@ const DoctorsList = () => {
     }
   };
 
+  const handleDoctorClick = (id) => {
+    navigate(`/doctor-details/${id}`);
+  };
+
   return (
     <div className='m-5 max-h-[90vh] overflow-y-scroll'>
       {isDeleting && <LoadingScreen />}
       <h1 className='text-lg font-medium'>All Doctors</h1>
       <div className='w-full flex flex-wrap gap-4 pt-5 gap-y-6'>
         {doctors.map((item, index) => (
-          <div className='border border-[#C9D8FF] rounded-xl max-w-56 overflow-hidden cursor-pointer group relative' key={index}>
+          <div 
+            onClick={() => handleDoctorClick(item._id)}
+            className='border border-[#C9D8FF] rounded-xl max-w-56 overflow-hidden cursor-pointer group relative' 
+            key={index}
+          >
             <div className='absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200'>
               <button
                 onClick={(e) => handleDelete(e, item._id)}
@@ -58,10 +68,12 @@ const DoctorsList = () => {
                 }`}>
                   {item.available ? 'Available' : 'Not Available'}
                 </div>
-                <Switch 
-                  checked={item.available}
-                  onCheckedChange={() => changeAvailability(item._id)}
-                />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Switch 
+                    checked={item.available}
+                    onCheckedChange={(checked) => changeAvailability(item._id)}
+                  />
+                </div>
               </div>
             </div>
           </div>
