@@ -190,6 +190,45 @@ const deleteDoctor = async (req, res) => {
     }
 };
 
+// API to update a doctor
+const updateDoctor = async (req, res) => {
+    try {
+        const { docId, degree, speciality, experience, fees, about, available, address } = req.body
+
+        await doctorModel.findByIdAndUpdate(docId, {
+            degree,
+            speciality,
+            experience,
+            fees,
+            about,
+            available,
+            address
+        })
+
+        res.json({ success: true, message: 'Doctor Updated Successfully' })
+
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
+// API to verify admin password
+const verifyPassword = async (req, res) => {
+    try {
+        const { password } = req.body
+        
+        if (password === process.env.ADMIN_PASSWORD) {
+            res.json({ success: true })
+        } else {
+            res.json({ success: false, message: 'Incorrect password' })
+        }
+    } catch (error) {
+        console.log(error)
+        res.json({ success: false, message: error.message })
+    }
+}
+
 export {
     loginAdmin,
     appointmentsAdmin,
@@ -197,5 +236,7 @@ export {
     addDoctor,
     allDoctors,
     adminDashboard,
-    deleteDoctor
+    deleteDoctor,
+    updateDoctor,
+    verifyPassword
 }
