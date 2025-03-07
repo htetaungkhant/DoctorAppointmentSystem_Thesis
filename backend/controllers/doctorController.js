@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
+import { v2 as cloudinary } from "cloudinary";
 
 // API for doctor Login 
 const loginDoctor = async (req, res) => {
@@ -190,6 +191,65 @@ const doctorDashboard = async (req, res) => {
     }
 }
 
+// API for doctor to delete their own account
+const deleteAccount = async (req, res) => {
+    try {
+        const { docId } = req.body;
+        const { password } = req.body;
+
+        // Verify the password first
+        const doctor = await doctorModel.findById(docId);
+        if (!doctor) {
+            return res.json({ success: false, message: 'Doctor not found.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, doctor.password);
+        if (!isMatch) {
+            return res.json({ success: false, message: 'Incorrect password' });
+        }
+
+        // Check for active appointments
+        const activeAppointments = await appointmentModel.find({ 
+            docId, 
+            cancelled: false, 
+            isCompleted: false 
+        });
+        if (activeAppointments.length > 0) {
+            return res.json({ 
+                success: false, 
+                message: 'You have active appointments. Please complete or cancel them before deleting your account.' 
+            });
+        }
+
+        // Delete image from Cloudinary if exists
+        if (doctor.image) {
+            try {
+                const publicId = doctor.image.split('/').pop().split('.')[0];
+                await cloudinary.uploader.destroy(publicId);
+            } catch (cloudinaryError) {
+                console.log('Cloudinary deletion error:', cloudinaryError);
+                return res.json({ 
+                    success: false, 
+                    message: 'Failed to delete profile image. Please try again.' 
+                });
+            }
+        }
+
+        // Delete the doctor and their appointments
+        await doctorModel.findByIdAndDelete(docId);
+        await appointmentModel.deleteMany({ docId });
+        
+        res.json({ 
+            success: true, 
+            message: 'Your account has been deleted successfully' 
+        });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 export {
     loginDoctor,
     appointmentsDoctor,
@@ -199,5 +259,6 @@ export {
     appointmentComplete,
     doctorDashboard,
     doctorProfile,
-    updateDoctorProfile
+    updateDoctorProfile,
+    deleteAccount
 }
