@@ -13,7 +13,7 @@ const Contact = () => {
         <img className='w-full md:max-w-[360px]' src={assets.contact_image} alt="" />
         <div className='flex flex-col justify-center items-start gap-6'>
           <p className=' font-semibold text-lg text-gray-600'>OUR OFFICE</p>
-          <p className=' text-gray-500'>31, 80 * 81 <br /> Mandalay, Myanmar </p>
+          <p className=' text-gray-500'>No. 234, 30th Street, Between 82nd & 83rd Streets, <br /> Mahar Aung Myay Township, Mandalay </p>
           <p className=' text-gray-500'>Tel: 09 783761936 <br /> Email: contact@prescripto.com</p>
           {/* <p className=' font-semibold text-lg text-gray-600'>CAREERS AT PRESCRIPTO</p>
           <p className=' text-gray-500'>Learn more about our teams and job openings.</p>
