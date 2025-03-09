@@ -99,7 +99,18 @@ const addDoctor = async (req, res) => {
             about,
             fees,
             address: JSON.parse(address),
-            date: Date.now()
+            date: Date.now(),
+            schedule: {
+                monday: [],
+                tuesday: [],
+                wednesday: [],
+                thursday: [],
+                friday: [],
+                saturday: [],
+                sunday: [],
+                unavailableDates: [],
+                publicHolidaysEnabled: true
+            }
         }
 
         const newDoctor = new doctorModel(doctorData)
