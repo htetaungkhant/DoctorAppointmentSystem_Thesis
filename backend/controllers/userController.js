@@ -7,6 +7,7 @@ import appointmentModel from "../models/appointmentModel.js";
 import { v2 as cloudinary } from 'cloudinary'
 import stripe from "stripe";
 import razorpay from 'razorpay';
+import { fetchPublicHolidays } from "../services/holidayService.js";
 
 // Gateway Initialize
 const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY)
@@ -132,14 +133,44 @@ const updateProfile = async (req, res) => {
 
 // API to book appointment 
 const bookAppointment = async (req, res) => {
-
     try {
-
         const { userId, docId, slotDate, slotTime } = req.body
+
         const docData = await doctorModel.findById(docId).select("-password")
 
         if (!docData.available) {
             return res.json({ success: false, message: 'Doctor Not Available' })
+        }
+
+        // Check if public holidays are enabled and if the selected date is a public holiday
+        if (docData.schedule?.publicHolidaysEnabled) {
+            const publicHolidays = await fetchPublicHolidays();
+            const bookingDate = new Date(slotDate.split('_').reverse().join('-'));
+            
+            const isPublicHoliday = publicHolidays.some(holiday => 
+                holiday.getFullYear() === bookingDate.getFullYear() &&
+                holiday.getMonth() === bookingDate.getMonth() &&
+                holiday.getDate() === bookingDate.getDate()
+            );
+
+            if (isPublicHoliday) {
+                return res.json({ success: false, message: 'Selected date is a public holiday' });
+            }
+        }
+
+        // Check if the selected date is in unavailable dates
+        if (docData.schedule?.unavailableDates?.length > 0) {
+            const bookingDate = new Date(slotDate.split('_').reverse().join('-'));
+            const isUnavailable = docData.schedule.unavailableDates.some(date => {
+                const unavailDate = new Date(date);
+                return unavailDate.getFullYear() === bookingDate.getFullYear() &&
+                       unavailDate.getMonth() === bookingDate.getMonth() &&
+                       unavailDate.getDate() === bookingDate.getDate();
+            });
+
+            if (isUnavailable) {
+                return res.json({ success: false, message: 'Doctor is not available on this date' });
+            }
         }
 
         let slots_booked = docData.slots_booked
@@ -184,7 +215,6 @@ const bookAppointment = async (req, res) => {
         console.log(error)
         res.json({ success: false, message: error.message })
     }
-
 }
 
 // API to cancel appointment
