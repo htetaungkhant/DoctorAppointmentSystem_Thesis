@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import { assets } from '../assets/assets'
@@ -10,12 +10,14 @@ const Appointment = () => {
 
     const { docId } = useParams()
     const { doctors, currencySymbol, backendUrl, token, getDoctosData } = useContext(AppContext)
-    const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+    const daysOfWeek = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
     const [docInfo, setDocInfo] = useState(false)
     const [docSlots, setDocSlots] = useState([])
     const [slotIndex, setSlotIndex] = useState(0)
     const [slotTime, setSlotTime] = useState('')
+    const [, setMinDate] = useState(new Date());
+    const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
 
     const navigate = useNavigate()
 
@@ -25,97 +27,170 @@ const Appointment = () => {
     }
 
     const getAvailableSolts = async () => {
-
-        setDocSlots([])
-
-        // getting current date
-        let today = new Date()
-
-        for (let i = 0; i < 7; i++) {
-
-            // getting date with index 
-            let currentDate = new Date(today)
-            currentDate.setDate(today.getDate() + i)
-
-            // setting end time of the date with index
-            let endTime = new Date()
-            endTime.setDate(today.getDate() + i)
-            endTime.setHours(21, 0, 0, 0)
-
-            // setting hours 
-            if (today.getDate() === currentDate.getDate()) {
-                currentDate.setHours(currentDate.getHours() > 10 ? currentDate.getHours() + 1 : 10)
-                currentDate.setMinutes(currentDate.getMinutes() > 30 ? 30 : 0)
-            } else {
-                currentDate.setHours(10)
-                currentDate.setMinutes(0)
+        setDocSlots([]);
+        
+        try {
+            const { data } = await axios.get(`${backendUrl}/api/doctor/schedule/${docId}`);
+            if (!data.success) {
+                toast.error('Failed to fetch doctor schedule');
+                return;
+            }
+            
+            const doctorSchedule = data.schedule || {};
+            
+            // Check if doctor has set up any schedule
+            const hasAnySchedule = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+                .some(day => doctorSchedule[day]?.length > 0);
+                
+            if (!hasAnySchedule) {
+                setDocSlots([]); // Clear any existing slots
+                return; // Return early, the empty docSlots will trigger the "no schedule" message
             }
 
-            let timeSlots = [];
+            const startDate = new Date(doctorSchedule.minDate);
+            const endDate = new Date(doctorSchedule.maxDate);
+            const serverTime = new Date(doctorSchedule.serverTime);
+            setMinDate(startDate);
 
+            // Convert unavailable dates and public holidays to Date objects
+            const unavailableDates = [
+                ...(doctorSchedule.unavailableDates || []).map(date => new Date(date)),
+                ...(doctorSchedule.publicHolidaysEnabled ? (doctorSchedule.publicHolidays || []).map(date => new Date(date)) : [])
+            ];
 
-            while (currentDate < endTime) {
-                let formattedTime = currentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            // Changed array to match backend's day order (Monday first)
+            const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            let dateSlots = [];
 
-                let day = currentDate.getDate()
-                let month = currentDate.getMonth() + 1
-                let year = currentDate.getFullYear()
+            // Calculate the number of empty slots needed at the start to align with correct weekday
+            const firstDayIndex = startDate.getDay() - 1; // -1 to convert from Sunday=0 to Monday=0
+            const emptySlots = firstDayIndex >= 0 ? firstDayIndex : 6; // If Sunday (0), we need 6 empty slots
 
-                const slotDate = day + "_" + month + "_" + year
-                const slotTime = formattedTime
+            // Add empty slots for proper alignment
+            for (let i = 0; i < emptySlots; i++) {
+                const emptyDate = new Date(startDate);
+                emptyDate.setDate(startDate.getDate() - (emptySlots - i));
+                dateSlots.push({ date: emptyDate, slots: [] });
+            }
 
-                const isSlotAvailable = docInfo.slots_booked[slotDate] && docInfo.slots_booked[slotDate].includes(slotTime) ? false : true
+            // Iterate through dates and adjust for day offset
+            for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+                let dayIndex = date.getDay() - 1; // Adjust to make Monday index 0
+                if (dayIndex === -1) dayIndex = 6; // Handle Sunday
+                const dayName = days[dayIndex];
+                const daySchedule = doctorSchedule[dayName] || [];
+                let timeSlots = [];
 
-                if (isSlotAvailable) {
-
-                    // Add slot to array
-                    timeSlots.push({
-                        datetime: new Date(currentDate),
-                        time: formattedTime
-                    })
+                // Skip past dates (but not today) and unavailable dates
+                if ((date < serverTime && date.toDateString() !== serverTime.toDateString()) || 
+                    unavailableDates.some(unavailableDate => 
+                        unavailableDate.getFullYear() === date.getFullYear() &&
+                        unavailableDate.getMonth() === date.getMonth() &&
+                        unavailableDate.getDate() === date.getDate()
+                    )) {
+                    dateSlots.push({ date: new Date(date), slots: [] });
+                    continue;
                 }
 
-                // Increment current time by 30 minutes
-                currentDate.setMinutes(currentDate.getMinutes() + 30);
+                // Process time slots
+                if (daySchedule.length > 0) {
+                    for (const slot of daySchedule) {
+                        let slotDateTime = new Date(date);
+                        let [hours, minutes] = slot.startTime.split(':');
+                        slotDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+                        // For today, skip only the slots that have already started based on server time
+                        // For future dates, include all slots
+                        if (date.toDateString() === serverTime.toDateString() && slotDateTime <= serverTime) {
+                            continue;
+                        }
+
+                        const slotDate = `${slotDateTime.getDate()}_${slotDateTime.getMonth() + 1}_${slotDateTime.getFullYear()}`;
+                        
+                        if (!docInfo.slots_booked[slotDate]?.includes(slot.startTime)) {
+                            timeSlots.push({
+                                datetime: new Date(slotDateTime),
+                                startTime: slot.startTime,
+                                endTime: slot.endTime
+                            });
+                        }
+                    }
+                }
+
+                dateSlots.push({
+                    date: new Date(date),
+                    slots: timeSlots
+                });
             }
 
-            setDocSlots(prev => ([...prev, timeSlots]))
+            // Add empty slots at the end to complete the grid if needed
+            const totalDays = dateSlots.length;
+            const remainder = totalDays % 7;
+            if (remainder > 0) {
+                const daysToAdd = 7 - remainder;
+                const lastDate = new Date(dateSlots[dateSlots.length - 1].date);
+                for (let i = 1; i <= daysToAdd; i++) {
+                    const fillerDate = new Date(lastDate);
+                    fillerDate.setDate(lastDate.getDate() + i);
+                    dateSlots.push({ date: fillerDate, slots: [] });
+                }
+            }
 
+            setDocSlots(dateSlots);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to fetch available slots');
         }
-
-    }
+    };
 
     const bookAppointment = async () => {
+        if (!slotTime) {
+            toast.warning('Please select an appointment time');
+            return;
+        }
 
         if (!token) {
             toast.warning('Login to book appointment')
             return navigate('/login')
         }
 
-        const date = docSlots[slotIndex][0].datetime
+        const selectedSlot = docSlots[slotIndex];
+        if (!selectedSlot) {
+            toast.error('Invalid date selection');
+            return;
+        }
 
-        let day = date.getDate()
-        let month = date.getMonth() + 1
-        let year = date.getFullYear()
+        const date = selectedSlot.date;
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        const year = date.getFullYear();
 
-        const slotDate = day + "_" + month + "_" + year
+        const slotDate = `${day}_${month}_${year}`;
 
         try {
-
-            const { data } = await axios.post(backendUrl + '/api/user/book-appointment', { docId, slotDate, slotTime }, { headers: { token } })
+            const { data } = await axios.post(
+                backendUrl + '/api/user/book-appointment', 
+                { docId, slotDate, slotTime }, 
+                { headers: { token } }
+            )
+            
             if (data.success) {
                 toast.success(data.message)
                 getDoctosData()
                 navigate('/my-appointments')
             } else {
-                toast.error(data.message)
+                if (data.message === 'Doctor is not available on this date') {
+                    toast.error('The doctor has marked this date as unavailable')
+                } else if (data.message === 'Slot Not Available') {
+                    toast.error('This time slot is no longer available')
+                } else {
+                    toast.error(data.message)
+                }
             }
-
         } catch (error) {
             console.log(error)
             toast.error(error.message)
         }
-
     }
 
     useEffect(() => {
@@ -155,32 +230,225 @@ const Appointment = () => {
                         <p className='text-sm text-gray-600 max-w-[700px] mt-1'>{docInfo.about}</p>
                     </div>
 
-                    <p className='text-gray-600 font-medium mt-4'>Appointment fee: <span className='text-gray-800'>{docInfo.fees}{currencySymbol}</span> </p>
+                    <p className='text-gray-600 font-medium mt-4'>Consultation fee: <span className='text-gray-800'>{docInfo.fees}{currencySymbol}</span> </p>
                 </div>
             </div>
 
-            {/* Booking slots */}
-            <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-[#565656]'>
-                <p >Booking slots</p>
-                <div className='flex gap-3 items-center w-full overflow-x-scroll mt-4'>
-                    {docSlots.length && docSlots.map((item, index) => (
-                        <div onClick={() => setSlotIndex(index)} key={index} className={`text-center py-6 min-w-16 rounded-full cursor-pointer ${slotIndex === index ? 'bg-primary text-white' : 'border border-[#DDDDDD]'}`}>
-                            <p>{item[0] && daysOfWeek[item[0].datetime.getDay()]}</p>
-                            <p>{item[0] && item[0].datetime.getDate()}</p>
+            {/* Doctor Availability Notice */}
+            {!docInfo.available && (
+                <div className="sm:ml-72 sm:pl-4 mt-8">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 text-center">
+                        <svg className="w-12 h-12 text-orange-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3 className="text-lg font-semibold text-gray-800 mb-2">Doctor Currently Unavailable</h3>
+                        <p className="text-gray-600">Dr. {docInfo.name} is not accepting appointments at this time.</p>
+                        <p className="text-sm text-gray-500 mt-2">Please check back later or explore other available doctors.</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Booking slots - Only show if doctor is available */}
+            {docInfo.available && (
+                <div className='sm:ml-72 sm:pl-4 mt-8 font-medium text-[#565656]'>
+                    <p className="text-lg mb-2">Available Appointment Slots</p>
+                    {docSlots.length > 0 ? (
+                        <>
+                            {/* Month navigation */}
+                            <div className="flex items-center justify-between mb-6 bg-white rounded-lg shadow-sm border border-gray-100 p-3">
+                                <button 
+                                    onClick={() => setCurrentMonthOffset(prev => Math.max(prev - 1, 0))}
+                                    disabled={currentMonthOffset === 0}
+                                    className={`p-2 rounded-lg transition-all duration-200 ${
+                                        currentMonthOffset === 0 
+                                            ? 'text-gray-300 cursor-not-allowed' 
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-primary'
+                                    }`}
+                                >
+                                    <svg className="w-5 h-5" fill="none" strokeWidth={2} stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <h3 className="text-lg font-semibold text-gray-800">
+                                    {new Date(docSlots[currentMonthOffset * 28]?.date).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                </h3>
+                                <button 
+                                    onClick={() => setCurrentMonthOffset(prev => prev + 1)}
+                                    disabled={currentMonthOffset * 28 + 28 >= docSlots.length}
+                                    className={`p-2 rounded-lg transition-all duration-200 ${
+                                        currentMonthOffset * 28 + 28 >= docSlots.length
+                                            ? 'text-gray-300 cursor-not-allowed' 
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-primary'
+                                    }`}
+                                >
+                                    <svg className="w-5 h-5" fill="none" strokeWidth={2} stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Calendar container */}
+                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                                {/* Calendar header */}
+                                <div className="grid grid-cols-7 gap-1.5 mb-3">
+                                    {daysOfWeek.map(day => (
+                                        <div key={day} className="text-center font-semibold text-sm text-gray-600 py-2 border-b border-gray-100">
+                                            {day}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Calendar grid */}
+                                <div className="grid grid-cols-7 gap-1.5">
+                                    {docSlots.slice(currentMonthOffset * 28, currentMonthOffset * 28 + 28).map((dateSlot, index) => {
+                                        const isToday = dateSlot.date.toDateString() === new Date().toDateString();
+                                        const hasSlots = dateSlot.slots.length > 0;
+                                        const isSelected = slotIndex === currentMonthOffset * 28 + index;
+                                        return (
+                                            <div 
+                                                key={index}
+                                                onClick={() => setSlotIndex(currentMonthOffset * 28 + index)}
+                                                className={`py-3 px-1 transition-all duration-200 cursor-pointer rounded-lg border ${
+                                                    isSelected
+                                                        ? 'bg-primary text-white border-primary shadow-md scale-105 z-10' 
+                                                        : isToday 
+                                                            ? 'bg-primary/5 text-primary border-primary shadow-sm' 
+                                                            : hasSlots
+                                                                ? 'border-gray-100 hover:border-primary hover:shadow-md hover:scale-105 bg-white'
+                                                                : 'border-gray-50 hover:border-gray-200 hover:bg-gray-50/50 bg-white'
+                                                }`}
+                                            >
+                                                <div className="text-center">
+                                                    <p className={`text-base leading-none mb-2 ${
+                                                        isSelected 
+                                                            ? 'font-bold' 
+                                                            : hasSlots 
+                                                                ? 'font-medium' 
+                                                                : 'font-normal'
+                                                    }`}>
+                                                        {dateSlot.date.getDate()}
+                                                    </p>
+                                                    {hasSlots && (
+                                                        <div className={`text-[11px] leading-none ${
+                                                            isSelected 
+                                                                ? 'text-white/90' 
+                                                                : 'text-primary'
+                                                        }`}>
+                                                            {dateSlot.slots.length} slots
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Selected date info and time slots */}
+                            {docSlots[slotIndex] && (
+                                <div className='mt-8'>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <p className="text-sm">
+                                            {docSlots[slotIndex].date.toLocaleDateString('en-US', { 
+                                                weekday: 'long', 
+                                                month: 'long', 
+                                                day: 'numeric' 
+                                            })}
+                                        </p>
+                                        {docSlots[slotIndex].slots.length > 0 ? (
+                                            <span className="text-xs text-primary">
+                                                {docSlots[slotIndex].slots.length} slots available
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-gray-500">
+                                                No slots available
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {docSlots[slotIndex].slots.length > 0 ? (
+                                        <div className='bg-gray-50 rounded-lg p-6'>
+                                            <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3'>
+                                                {docSlots[slotIndex].slots.map((slot, index) => {
+                                                    const startTime = new Date(`2000-01-01T${slot.startTime}`);
+                                                    const endTime = new Date(`2000-01-01T${slot.endTime}`);
+                                                    const isSelected = slot.startTime === slotTime;
+                                                    return (
+                                                        <div 
+                                                            key={index}
+                                                            onClick={() => setSlotTime(slot.startTime)}
+                                                            className={`p-3 rounded-lg cursor-pointer transition-all duration-200 group ${
+                                                                isSelected 
+                                                                    ? 'bg-primary text-white shadow-md border border-primary' 
+                                                                    : 'bg-white border border-gray-200 hover:border-primary hover:shadow-md'
+                                                            }`}
+                                                        >
+                                                            <div className="text-center space-y-2">
+                                                                <p className={`text-sm font-medium ${
+                                                                    isSelected ? 'text-white' : 'text-gray-700'
+                                                                }`}>
+                                                                    {startTime.toLocaleTimeString([], { 
+                                                                        hour: 'numeric',
+                                                                        minute: '2-digit',
+                                                                        hour12: true 
+                                                                    }).toLowerCase()}
+                                                                </p>
+                                                                <div className={`flex items-center justify-center gap-1.5 ${
+                                                                    isSelected ? 'opacity-60' : 'opacity-30 group-hover:opacity-60'
+                                                                }`}>
+                                                                    <div className="h-[1px] w-2 bg-current"></div>
+                                                                    <div className="h-1 w-1 rounded-full bg-current"></div>
+                                                                    <div className="h-[1px] w-2 bg-current"></div>
+                                                                </div>
+                                                                <p className={`text-sm font-medium ${
+                                                                    isSelected ? 'text-white' : 'text-gray-700'
+                                                                }`}>
+                                                                    {endTime.toLocaleTimeString([], { 
+                                                                        hour: 'numeric',
+                                                                        minute: '2-digit',
+                                                                        hour12: true 
+                                                                    }).toLowerCase()}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-8 px-4 bg-gray-50 rounded-lg">
+                                            <p className="text-gray-500">No appointment slots available for this date.</p>
+                                            <p className="text-xs text-gray-400 mt-1">Please select another date or check back later.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={bookAppointment} 
+                                disabled={!slotTime}
+                                className={`mt-8 py-2.5 px-6 rounded transition-all duration-200 ${
+                                    slotTime 
+                                        ? 'bg-primary text-white hover:bg-blue-600 shadow-sm hover:shadow' 
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                            >
+                                Book Appointment
+                            </button>
+                        </>
+                    ) : (
+                        <div className="mt-4 p-6 bg-gray-50 rounded-lg text-center">
+                            <svg className="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p className="text-gray-600">This doctor hasn't set up their consultation schedule yet.</p>
+                            <p className="text-sm text-gray-500 mt-2">Please check back later or try another doctor.</p>
                         </div>
-                    ))}
+                    )}
                 </div>
+            )}
 
-                <div className='flex items-center gap-3 w-full overflow-x-scroll mt-4'>
-                    {docSlots.length && docSlots[slotIndex].map((item, index) => (
-                        <p onClick={() => setSlotTime(item.time)} key={index} className={`text-sm font-light  flex-shrink-0 px-5 py-2 rounded-full cursor-pointer ${item.time === slotTime ? 'bg-primary text-white' : 'text-[#949494] border border-[#B4B4B4]'}`}>{item.time.toLowerCase()}</p>
-                    ))}
-                </div>
-
-                <button onClick={bookAppointment} className='bg-primary text-white text-sm font-light px-20 py-3 rounded-full my-6'>Book an appointment</button>
-            </div>
-
-            {/* Listing Releated Doctors */}
+            {/* Listing Related Doctors */}
             <RelatedDoctors speciality={docInfo.speciality} docId={docId} />
         </div>
     ) : null
