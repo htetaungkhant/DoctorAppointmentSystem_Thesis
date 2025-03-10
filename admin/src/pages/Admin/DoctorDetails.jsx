@@ -123,7 +123,7 @@ const DoctorDetails = () => {
     return doctor ? (
         <>
             <div className="min-h-screen w-full py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl px-4 sm:px-6 lg:px-8">
                     {/* Back button */}
                     <button 
                         onClick={() => navigate('/doctor-list')}
@@ -193,12 +193,16 @@ const DoctorDetails = () => {
                                                 value={doctor.speciality}
                                                 onChange={(e) => setDoctor(prev => ({ ...prev, speciality: e.target.value }))}
                                             >
-                                                <option value="General physician">General physician</option>
-                                                <option value="Gynecologist">Gynecologist</option>
-                                                <option value="Dermatologist">Dermatologist</option>
-                                                <option value="Pediatricians">Pediatricians</option>
-                                                <option value="Neurologist">Neurologist</option>
-                                                <option value="Gastroenterologist">Gastroenterologist</option>
+                                                <option value="General Medicine">General Medicine</option>
+                                                <option value="Obstetrics and Gynaecology">Obstetrics and Gynaecology</option>
+                                                <option value="Paediatrics">Paediatrics</option>
+                                                <option value="Mental Health">Mental Health</option>
+                                                <option value="Surgery">Surgery</option>
+                                                <option value="Orthopaedics">Orthopaedics</option>
+                                                <option value="Eye">Eye</option>
+                                                <option value="Ear, Nose and Throat">Ear, Nose and Throat</option>
+                                                <option value="Dental">Dental</option>
+                                                <option value="Traditional Medicine">Traditional Medicine</option>
                                             </select>
                                         </div>
                                     ) : (
@@ -243,11 +247,12 @@ const DoctorDetails = () => {
                                                             onChange={(e) => setDoctor(prev => ({ ...prev, experience: e.target.value }))}
                                                             className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm"
                                                         >
-                                                            {[...Array(20)].map((_, i) => (
-                                                                <option key={i+1} value={`${i+1} Year${i !== 0 ? 's' : ''}`}>
-                                                                    {i+1} Year{i !== 0 ? 's' : ''}
-                                                                </option>
-                                                            ))}
+                                                            <option value="House Surgeon">House Surgeon</option>
+                                                            <option value="Medical Officer">Medical Officer</option>
+                                                            <option value="Assistant Specialist">Assistant Specialist</option>
+                                                            <option value="Specialist">Specialist</option>
+                                                            <option value="Senior Consultant">Senior Consultant</option>
+                                                            <option value="Professor">Professor</option>
                                                         </select>
                                                     ) : (
                                                         <p className="text-gray-900">{doctor.experience}</p>

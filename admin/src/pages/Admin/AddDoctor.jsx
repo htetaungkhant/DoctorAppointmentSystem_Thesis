@@ -12,10 +12,10 @@ const AddDoctor = () => {
     const [name, setName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
-    const [experience, setExperience] = useState('1 Year')
+    const [experience, setExperience] = useState('House Surgeon')
     const [fees, setFees] = useState('')
     const [about, setAbout] = useState('')
-    const [speciality, setSpeciality] = useState('General physician')
+    const [speciality, setSpeciality] = useState('General Medicine')
     const [degree, setDegree] = useState('')
     const [address1, setAddress1] = useState('')
     const [address2, setAddress2] = useState('')
@@ -71,7 +71,7 @@ const AddDoctor = () => {
                 setDegree('')
                 setAbout('')
                 setFees('')
-                setExperience('1 Year')
+                setExperience('House Surgeon')
                 setSpeciality('General physician')
             } else {
                 toast.error(data.message)
@@ -125,26 +125,12 @@ const AddDoctor = () => {
                             <div className='flex-1 flex flex-col gap-1'>
                                 <p>Experience</p>
                                 <select onChange={e => setExperience(e.target.value)} value={experience} className='border rounded px-2 py-2' >
-                                    <option value="1 Year">1 Year</option>
-                                    <option value="2 Year">2 Years</option>
-                                    <option value="3 Year">3 Years</option>
-                                    <option value="4 Year">4 Years</option>
-                                    <option value="5 Year">5 Years</option>
-                                    <option value="6 Year">6 Years</option>
-                                    <option value="7 Year">7 Years</option>
-                                    <option value="8 Year">8 Years</option>
-                                    <option value="9 Year">9 Years</option>
-                                    <option value="10 Year">10 Years</option>
-                                    <option value="11 Year">11 Years</option>
-                                    <option value="12 Year">12 Years</option>
-                                    <option value="13 Year">13 Years</option>
-                                    <option value="14 Year">14 Years</option>
-                                    <option value="15 Year">15 Years</option>
-                                    <option value="16 Year">16 Years</option>
-                                    <option value="17 Year">17 Years</option>
-                                    <option value="18 Year">18 Years</option>
-                                    <option value="19 Year">19 Years</option>
-                                    <option value="20 Year">20 Years</option>
+                                    <option value="House Surgeon">House Surgeon</option>
+                                    <option value="Medical Officer">Medical Officer</option>
+                                    <option value="Assistant Specialist">Assistant Specialist</option>
+                                    <option value="Specialist">Specialist</option>
+                                    <option value="Senior Consultant">Senior Consultant</option>
+                                    <option value="Professor">Professor</option>
                                 </select>
                             </div>
 
@@ -160,12 +146,16 @@ const AddDoctor = () => {
                             <div className='flex-1 flex flex-col gap-1'>
                                 <p>Speciality</p>
                                 <select onChange={e => setSpeciality(e.target.value)} value={speciality} className='border rounded px-2 py-2'>
-                                    <option value="General physician">General physician</option>
-                                    <option value="Gynecologist">Gynecologist</option>
-                                    <option value="Dermatologist">Dermatologist</option>
-                                    <option value="Pediatricians">Pediatricians</option>
-                                    <option value="Neurologist">Neurologist</option>
-                                    <option value="Gastroenterologist">Gastroenterologist</option>
+                                    <option value="General Medicine">General Medicine</option>
+                                    <option value="Obstetrics and Gynaecology">Obstetrics and Gynaecology</option>
+                                    <option value="Paediatrics">Paediatrics</option>
+                                    <option value="Mental Health">Mental Health</option>
+                                    <option value="Surgery">Surgery</option>
+                                    <option value="Orthopaedics">Orthopaedics</option>
+                                    <option value="Eye">Eye</option>
+                                    <option value="Ear, Nose and Throat">Ear, Nose and Throat</option>
+                                    <option value="Dental">Dental</option>
+                                    <option value="Traditional Medicine">Traditional Medicine</option>
                                 </select>
                             </div>
 
