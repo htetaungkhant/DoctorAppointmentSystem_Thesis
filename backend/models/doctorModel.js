@@ -26,7 +26,7 @@ const doctorSchema = new mongoose.Schema({
     degree: { type: String, required: true },
     experience: { type: String, required: true },
     about: { type: String, required: true },
-    available: { type: Boolean, default: true },
+    available: { type: Boolean, default: false },
     fees: { type: Number, required: true },
     slots_booked: { type: Object, default: {} },
     schedule: { type: scheduleSchema, default: () => ({}) },
