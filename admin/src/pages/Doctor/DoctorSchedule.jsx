@@ -267,7 +267,7 @@ const DoctorSchedule = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-6">
             {/* Header Section */}
-            <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-sm p-6 mb-6">
+            <div className="max-w-7xl bg-white rounded-xl shadow-sm p-6 mb-6">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900">Schedule Management</h1>
@@ -308,7 +308,7 @@ const DoctorSchedule = () => {
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto space-y-6">
+            <div className="max-w-7xl space-y-6">
                 {/* Calendar View - Moved to top */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200">
                     <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
