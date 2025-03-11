@@ -21,6 +21,10 @@ const Appointment = () => {
 
     const navigate = useNavigate()
 
+    const resetSlotTime = () => {
+        setSlotTime('');
+    };
+
     const fetchDocInfo = async () => {
         const docInfo = doctors.find((doc) => doc._id === docId)
         setDocInfo(docInfo)
@@ -182,7 +186,7 @@ const Appointment = () => {
                 if (data.message === 'Doctor is not available on this date') {
                     toast.error('The doctor has marked this date as unavailable')
                 } else if (data.message === 'Slot Not Available') {
-                    toast.error('This time slot is no longer available')
+                    toast.error('You already have an appointment booked at this time')
                 } else {
                     toast.error(data.message)
                 }
@@ -257,7 +261,10 @@ const Appointment = () => {
                             {/* Month navigation */}
                             <div className="flex items-center justify-between mb-6 bg-white rounded-lg shadow-sm border border-gray-100 p-3">
                                 <button 
-                                    onClick={() => setCurrentMonthOffset(prev => Math.max(prev - 1, 0))}
+                                    onClick={() => {
+                                        setCurrentMonthOffset(prev => Math.max(prev - 1, 0));
+                                        resetSlotTime();
+                                    }}
                                     disabled={currentMonthOffset === 0}
                                     className={`p-2 rounded-lg transition-all duration-200 ${
                                         currentMonthOffset === 0 
@@ -273,7 +280,10 @@ const Appointment = () => {
                                     {new Date(docSlots[currentMonthOffset * 28]?.date).toLocaleString('default', { month: 'long', year: 'numeric' })}
                                 </h3>
                                 <button 
-                                    onClick={() => setCurrentMonthOffset(prev => prev + 1)}
+                                    onClick={() => {
+                                        setCurrentMonthOffset(prev => prev + 1);
+                                        resetSlotTime();
+                                    }}
                                     disabled={currentMonthOffset * 28 + 28 >= docSlots.length}
                                     className={`p-2 rounded-lg transition-all duration-200 ${
                                         currentMonthOffset * 28 + 28 >= docSlots.length
@@ -307,7 +317,10 @@ const Appointment = () => {
                                         return (
                                             <div 
                                                 key={index}
-                                                onClick={() => setSlotIndex(currentMonthOffset * 28 + index)}
+                                                onClick={() => {
+                                                    setSlotIndex(currentMonthOffset * 28 + index);
+                                                    resetSlotTime();
+                                                }}
                                                 className={`py-3 px-1 transition-all duration-200 cursor-pointer rounded-lg border ${
                                                     isSelected
                                                         ? 'bg-primary text-white border-primary shadow-md scale-105 z-10' 
