@@ -134,88 +134,102 @@ const updateProfile = async (req, res) => {
 // API to book appointment 
 const bookAppointment = async (req, res) => {
     try {
-        const { userId, docId, slotDate, slotTime } = req.body
+        const { userId, docId, slotDate, slotTime } = req.body;
 
-        const docData = await doctorModel.findById(docId).select("-password")
-
-        if (!docData.available) {
-            return res.json({ success: false, message: 'Doctor Not Available' })
+        // Get doctor data
+        const docData = await doctorModel.findById(docId).select("-password");
+        if (!docData) {
+            return res.json({ success: false, message: 'Doctor not found' });
         }
 
-        // Check if public holidays are enabled and if the selected date is a public holiday
+        // Check if doctor is available
+        if (!docData.available) {
+            return res.json({ success: false, message: 'Doctor is not currently accepting appointments' });
+        }
+
+        // Parse the date
+        const [day, month, year] = slotDate.split('_').map(num => parseInt(num));
+        const date = new Date(year, month - 1, day);
+
+        // Check if the date is a public holiday (if enabled)
         if (docData.schedule?.publicHolidaysEnabled) {
             const publicHolidays = await fetchPublicHolidays();
-            const bookingDate = new Date(slotDate.split('_').reverse().join('-'));
-            
-            const isPublicHoliday = publicHolidays.some(holiday => 
-                holiday.getFullYear() === bookingDate.getFullYear() &&
-                holiday.getMonth() === bookingDate.getMonth() &&
-                holiday.getDate() === bookingDate.getDate()
+            const isPublicHoliday = publicHolidays.some(
+                holiday =>
+                    holiday.getFullYear() === date.getFullYear() &&
+                    holiday.getMonth() === date.getMonth() &&
+                    holiday.getDate() === date.getDate()
             );
 
             if (isPublicHoliday) {
-                return res.json({ success: false, message: 'Selected date is a public holiday' });
+                return res.json({ success: false, message: 'Doctor is not available on this date (Public Holiday)' });
             }
         }
 
-        // Check if the selected date is in unavailable dates
-        if (docData.schedule?.unavailableDates?.length > 0) {
-            const bookingDate = new Date(slotDate.split('_').reverse().join('-'));
-            const isUnavailable = docData.schedule.unavailableDates.some(date => {
-                const unavailDate = new Date(date);
-                return unavailDate.getFullYear() === bookingDate.getFullYear() &&
-                       unavailDate.getMonth() === bookingDate.getMonth() &&
-                       unavailDate.getDate() === bookingDate.getDate();
-            });
+        // Get the day of week (0 = Sunday, 1 = Monday, etc.)
+        let dayIndex = date.getDay() - 1; // Convert to 0 = Monday
+        if (dayIndex === -1) dayIndex = 6; // Handle Sunday
 
-            if (isUnavailable) {
-                return res.json({ success: false, message: 'Doctor is not available on this date' });
-            }
+        // Map day index to schedule day name
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+        const dayName = days[dayIndex];
+
+        // Check if the date is unavailable
+        const isUnavailableDate = docData.schedule.unavailableDates.some(
+            unavailableDate => 
+                unavailableDate.getFullYear() === date.getFullYear() &&
+                unavailableDate.getMonth() === date.getMonth() &&
+                unavailableDate.getDate() === date.getDate()
+        );
+
+        if (isUnavailableDate) {
+            return res.json({ success: false, message: 'Doctor is not available on this date' });
         }
 
-        let slots_booked = docData.slots_booked
+        // Check if the time slot exists in doctor's schedule for this day
+        const daySchedule = docData.schedule[dayName] || [];
+        const slotExists = daySchedule.some(slot => slot.startTime === slotTime);
 
-        // checking for slot availablity 
-        if (slots_booked[slotDate]) {
-            if (slots_booked[slotDate].includes(slotTime)) {
-                return res.json({ success: false, message: 'Slot Not Available' })
-            }
-            else {
-                slots_booked[slotDate].push(slotTime)
-            }
-        } else {
-            slots_booked[slotDate] = []
-            slots_booked[slotDate].push(slotTime)
+        if (!slotExists) {
+            return res.json({ success: false, message: 'Invalid time slot selected' });
         }
 
-        const userData = await userModel.findById(userId).select("-password")
+        // Check if slot is already booked
+        const existingAppointment = await appointmentModel.findOne({
+            docId,
+            userId,
+            slotDate,
+            slotTime,
+            cancelled: false
+        });
 
-        delete docData.slots_booked
+        if (existingAppointment) {
+            return res.json({ success: false, message: 'Slot Not Available' });
+        }
 
-        const appointmentData = {
+        // Get user data
+        const userData = await userModel.findById(userId).select("-password");
+        
+        // Create new appointment
+        const newAppointment = new appointmentModel({
             userId,
             docId,
+            slotDate,
+            slotTime,
             userData,
             docData,
             amount: docData.fees,
-            slotTime,
-            slotDate,
             date: Date.now()
-        }
+        });
 
-        const newAppointment = new appointmentModel(appointmentData)
-        await newAppointment.save()
-
-        // save new slots data in docData
-        await doctorModel.findByIdAndUpdate(docId, { slots_booked })
-
-        res.json({ success: true, message: 'Appointment Booked' })
+        await newAppointment.save();
+        res.json({ success: true, message: 'Appointment Booked Successfully' });
 
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
-}
+};
 
 // API to cancel appointment
 const cancelAppointment = async (req, res) => {
