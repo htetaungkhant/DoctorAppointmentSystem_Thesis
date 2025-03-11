@@ -201,6 +201,41 @@ const deleteDoctor = async (req, res) => {
     }
 };
 
+// API to delete all doctors
+const deleteAllDoctors = async (req, res) => {
+    try {
+        // Check for active appointments
+        const activeAppointments = await appointmentModel.find({ cancelled: false, isCompleted: false });
+        if (activeAppointments.length > 0) {
+            return res.json({ success: false, message: 'Cannot delete all doctors. There are active appointments.' });
+        }
+
+        // Get all doctors to delete their images
+        const doctors = await doctorModel.find({});
+        
+        // Delete all images from Cloudinary
+        for (const doctor of doctors) {
+            if (doctor.image) {
+                try {
+                    const publicId = doctor.image.split('/').pop().split('.')[0];
+                    await cloudinary.uploader.destroy(publicId);
+                } catch (cloudinaryError) {
+                    console.log('Cloudinary deletion error:', cloudinaryError);
+                }
+            }
+        }
+
+        // Delete all doctors and their appointments
+        await doctorModel.deleteMany({});
+        await appointmentModel.deleteMany({});
+        
+        res.json({ success: true, message: 'All doctors and associated data deleted successfully' });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
 // API to update a doctor
 const updateDoctor = async (req, res) => {
     try {
@@ -248,6 +283,7 @@ export {
     allDoctors,
     adminDashboard,
     deleteDoctor,
+    deleteAllDoctors,
     updateDoctor,
     verifyPassword
 }
