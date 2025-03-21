@@ -109,15 +109,11 @@ const Appointment = () => {
                             continue;
                         }
 
-                        const slotDate = `${slotDateTime.getDate()}_${slotDateTime.getMonth() + 1}_${slotDateTime.getFullYear()}`;
-                        
-                        if (!docInfo.slots_booked[slotDate]?.includes(slot.startTime)) {
-                            timeSlots.push({
-                                datetime: new Date(slotDateTime),
-                                startTime: slot.startTime,
-                                endTime: slot.endTime
-                            });
-                        }
+                        timeSlots.push({
+                            datetime: new Date(slotDateTime),
+                            startTime: slot.startTime,
+                            endTime: slot.endTime
+                        });
                     }
                 }
 
