@@ -62,7 +62,7 @@ const addDoctor = async (req, res) => {
 
     try {
 
-        const { name, email, password, speciality, degree, experience, about, fees, address } = req.body
+        const { name, email, password, speciality, degree, experience, about, fees, address, schedule } = req.body
         const imageFile = req.file
 
         // checking for all data to add doctor
@@ -100,7 +100,7 @@ const addDoctor = async (req, res) => {
             fees,
             address: JSON.parse(address),
             date: Date.now(),
-            schedule: {
+            schedule: schedule ? JSON.parse(schedule) : {
                 monday: [],
                 tuesday: [],
                 wednesday: [],
